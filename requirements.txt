@@ -1,0 +1,2 @@
+# No specific package requirements beyond standard AppDaemon
+# This file is required for HACS validation

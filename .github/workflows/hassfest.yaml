@@ -1,0 +1,23 @@
+name: Hassfest Validation
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  validate:
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: "actions/checkout@v3"
+      - name: "Check AppDaemon Structure"
+        run: |
+          if [ ! -d "apps/smart_climate_control" ]; then
+            echo "Error: Expected apps/smart_climate_control directory structure not found"
+            exit 1
+          fi
+          if [ ! -f "apps/smart_climate_control/smart_climate_controller.py" ]; then
+            echo "Error: Main controller file not found"
+            exit 1
+          fi

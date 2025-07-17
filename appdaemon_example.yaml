@@ -1,0 +1,26 @@
+# Example AppDaemon configuration
+# Copy this to your AppDaemon apps.yaml file and customize as needed
+
+smart_climate_controller:
+  module: smart_climate_control.smart_climate_controller
+  class: SmartClimateController
+  # Global configuration
+  log_level: INFO
+  update_interval: 300  # Update interval in seconds (5 minutes)
+  day_start_time: "07:00:00"  # When day period starts
+  night_start_time: "22:00:00"  # When night period starts
+  # Default temperatures
+  default_target_temp_day: 21.0  # Default day temperature in Celsius
+  default_target_temp_night: 18.0  # Default night temperature in Celsius
+  # Eco mode settings
+  eco_mode_when_away: true  # Enable eco mode when nobody is home
+  eco_temp_heating: 16.0  # Temperature to maintain when away (heating)
+  eco_temp_cooling: 26.0  # Temperature to maintain when away (cooling)
+
+  # Add rooms configuration according to your home setup
+  rooms:
+    living_room:
+      target_temp_day: 21.5
+      target_temp_night: 19.0
+      presence_required: false
+      # Add more room-specific settings as needed
