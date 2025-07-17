@@ -1,0 +1,10 @@
+{
+  "domain": "smart_thermal_control",
+  "name": "Smart Thermal Control",
+  "codeowners": ["@radumarinoiu"],
+  "documentation": "https://github.com/radumarinoiu/thermal-control-ha.git",
+  "issue_tracker": "https://github.com/radumarinoiu/thermal-control-ha/issues",
+  "iot_class": "local_polling",
+  "requirements": [],
+  "version": "v0.1"
+}
