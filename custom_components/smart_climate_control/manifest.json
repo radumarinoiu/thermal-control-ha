@@ -1,6 +1,6 @@
 {
-  "domain": "smart_thermal_control",
-  "name": "Smart Thermal Control",
+  "domain": "smart_climate_control",
+  "name": "Smart Climate Control",
   "codeowners": ["@radumarinoiu"],
   "documentation": "https://github.com/radumarinoiu/thermal-control-ha.git",
   "issue_tracker": "https://github.com/radumarinoiu/thermal-control-ha/issues",
