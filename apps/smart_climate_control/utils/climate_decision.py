@@ -84,14 +84,44 @@ class ClimateDecisionEngine:
 
         effective_target = target_temp
         if not home_occupied and eco_mode:
-            # If current temp is below target (heating needed), use eco_temp_heating
-            if current_temp < target_temp:
-                effective_target = eco_temp_heating
-                decision["reason"] = f"Eco mode active (away): using {eco_temp_heating}°C instead of {target_temp}°C"
-            # If current temp is above target (cooling needed), use eco_temp_cooling
-            elif current_temp > target_temp:
-                effective_target = eco_temp_cooling
-                decision["reason"] = f"Eco mode active (away): using {eco_temp_cooling}°C instead of {target_temp}°C"
+            # Get outdoor temperature and forecast data to determine season
+            outdoor_temp = self.controller.weather_manager.get_outdoor_temperature() or 20.0  # Default to 20°C if no data
+            forecast_data = self.controller.weather_manager.get_forecast_data()
+
+            # Determine season: cooling if outside temp is over 20°C or forecast shows it's getting warmer
+            is_cooling_season = outdoor_temp > 20.0 or self.controller.weather_manager.is_cooling_favorable()
+            is_heating_season = outdoor_temp < 15.0 or self.controller.weather_manager.is_heating_favorable()
+
+            # If neither condition is clearly met, use the current room temperature compared to target
+            # to determine the operation mode
+            if not is_cooling_season and not is_heating_season:
+                if current_temp > target_temp:
+                    is_cooling_season = True
+                else:
+                    is_heating_season = True
+
+            self.controller.log(f"Eco mode check: outside temp {outdoor_temp}°C, cooling season: {is_cooling_season}, heating season: {is_heating_season}", level="DEBUG")
+
+            if is_cooling_season:
+                # In cooling season, we should only cool if above eco_temp_cooling
+                if current_temp > eco_temp_cooling:
+                    effective_target = eco_temp_cooling
+                    decision["reason"] = f"Eco mode active (away/cooling): using {eco_temp_cooling}C instead of {target_temp}C, outside temp: {outdoor_temp:.1f}C"
+                else:
+                    # In cooling season but temperature is below eco cooling temp, no need to do anything
+                    decision["reason"] = f"Eco mode active (away): no cooling needed, room at {current_temp}C is below eco cooling threshold {eco_temp_cooling}C"
+                    decision["action"] = "no_action"
+                    return decision
+            elif is_heating_season:
+                # In heating season, we should only heat if below eco_temp_heating
+                if current_temp < eco_temp_heating:
+                    effective_target = eco_temp_heating
+                    decision["reason"] = f"Eco mode active (away/heating): using {eco_temp_heating}C instead of {target_temp}C, outside temp: {outdoor_temp:.1f}C"
+                else:
+                    # In heating season but temperature is above eco heating temp, no need to do anything
+                    decision["reason"] = f"Eco mode active (away): no heating needed, room at {current_temp}C is above eco heating threshold {eco_temp_heating}C"
+                    decision["action"] = "no_action"
+                    return decision
 
         # Check if room needs heating
         if current_temp < (effective_target - room_tolerance):
@@ -106,7 +136,7 @@ class ClimateDecisionEngine:
             )
 
         # No action needed - temperature is within tolerance
-        decision["reason"] = f"Temperature ({current_temp}°C) is within tolerance of target ({effective_target}°C)"
+        decision["reason"] = f"Temperature ({current_temp}C) is within tolerance of target ({effective_target}C)"
         return decision
 
     def _get_heating_decision(self,
@@ -152,7 +182,7 @@ class ClimateDecisionEngine:
             if temp_difference < 1.5:
                 decision["action"] = "heat_with_floor"
                 decision["floor_heating"] = True
-                decision["reason"] = f"Using floor heating: small temp difference ({temp_difference:.1f}°C)"
+                decision["reason"] = f"Using floor heating: small temp difference ({temp_difference:.1f}C)"
 
             # If temperature difference is larger, might need both AC and floor
             elif ac_heating_available:
@@ -163,9 +193,9 @@ class ClimateDecisionEngine:
                     decision["ac_temp"] = min(self.ac_max_temp, target_temp + 0.5)
                     decision["floor_heating"] = True
                     if enough_renewable:
-                        decision["reason"] = f"Using both AC and floor heating: renewable power available and {temp_difference:.1f}°C difference"
+                        decision["reason"] = f"Using both AC and floor heating: renewable power available and {temp_difference:.1f}C difference"
                     else:
-                        decision["reason"] = f"Using both AC and floor heating: large temp difference ({temp_difference:.1f}°C)"
+                        decision["reason"] = f"Using both AC and floor heating: large temp difference ({temp_difference:.1f}C)"
                 else:
                     # If outdoor temperature is dropping, start floor heating
                     if temp_trend == "dropping":
@@ -232,13 +262,13 @@ class ClimateDecisionEngine:
 
             # Check if we have renewable power
             if renewable_power > self.solar_excess_threshold:
-                decision["reason"] = f"Using AC cooling: {temp_difference:.1f}°C above target, renewable power available"
+                decision["reason"] = f"Using AC cooling: {temp_difference:.1f}C above target, renewable power available"
                 # If we have lots of excess power, we can cool more aggressively
                 if renewable_power > self.solar_excess_threshold * 3:
                     decision["ac_temp"] = max(self.ac_min_temp, target_temp - 1.0)
                     decision["reason"] = f"Using aggressive AC cooling: high renewable power available ({renewable_power:.0f}W)"
             else:
-                decision["reason"] = f"Using AC cooling: {temp_difference:.1f}°C above target"
+                decision["reason"] = f"Using AC cooling: {temp_difference:.1f}C above target"
         else:
             decision["reason"] = "No cooling options available for this room"
 

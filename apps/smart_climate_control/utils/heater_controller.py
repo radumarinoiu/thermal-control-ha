@@ -58,7 +58,7 @@ class HeaterController:
                 temperature=temperature
             )
 
-            self.controller.log(f"Set gas water heater temperature to {temperature}°C", level="INFO")
+            self.controller.log(f"Set gas water heater temperature to {temperature}C", level="INFO")
             self.target_heater_temp = temperature
             return True
         except Exception as e:

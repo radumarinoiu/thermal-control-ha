@@ -90,7 +90,7 @@ class WeatherManager:
             self.forecast_data = forecast_data
             self.last_update = self.controller.datetime()
 
-            self.controller.log(f"Weather forecast updated. Current temp: {forecast_data['current_temperature']}°C", 
+            self.controller.log(f"Weather forecast updated. Current temp: {forecast_data['current_temperature']}C", 
                                 level="INFO")
         except Exception as e:
             self.controller.log(f"Error updating weather forecast: {e}", level="ERROR")

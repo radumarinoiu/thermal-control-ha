@@ -187,7 +187,7 @@ class SmartClimateController(hass.Hass):
             self.log(f"Temperature change detected but no room_id provided: {entity}", level="WARNING")
             return
 
-        self.log(f"Temperature change in {room_id}: {old} → {new}", level="DEBUG")
+        self.log(f"Temperature change in {room_id}: {old} -> {new}", level="DEBUG")
         self._evaluate_room(room_id)
 
     def _on_window_change(self, entity: str, attribute: str, old: str, 
@@ -238,13 +238,13 @@ class SmartClimateController(hass.Hass):
         """
         try:
             new_value = float(new)
-            self.log(f"Solar excess changed: {old} → {new} W", level="DEBUG")
+            self.log(f"Solar excess changed: {old} -> {new} W", level="DEBUG")
             self.power_manager.update_solar_excess(new_value)
 
             # If significant change, re-evaluate all rooms
             old_value = float(old) if old else 0
             if abs(new_value - old_value) > self.config.get("solar_threshold_change", 300):  # 300W default
-                self.log(f"Significant solar production change detected ({old} → {new}), re-evaluating", level="INFO")
+                self.log(f"Significant solar production change detected ({old} -> {new}), re-evaluating", level="INFO")
                 for room_id in self.rooms:
                     self._evaluate_room(room_id)
         except (ValueError, TypeError):
@@ -256,7 +256,7 @@ class SmartClimateController(hass.Hass):
         """Handle changes in battery state of charge."""
         try:
             new_value = float(new)
-            self.log(f"Battery state of charge changed: {old} → {new}%", level="DEBUG")
+            self.log(f"Battery state of charge changed: {old} -> {new}%", level="DEBUG")
             self.power_manager.update_battery_soc(new_value)
         except (ValueError, TypeError):
             self.log(f"Invalid battery state of charge value: {new}", level="WARNING")
@@ -266,7 +266,7 @@ class SmartClimateController(hass.Hass):
         """Handle changes in central heater temperature."""
         try:
             new_value = float(new)
-            self.log(f"Central heater temperature changed: {old} → {new}°C", level="DEBUG")
+            self.log(f"Central heater temperature changed: {old} -> {new}C", level="DEBUG")
             self.power_manager.update_heater_temperature(new_value)
         except (ValueError, TypeError):
             self.log(f"Invalid heater temperature value: {new}", level="WARNING")
@@ -325,7 +325,7 @@ class SmartClimateController(hass.Hass):
         if action in ["heat_with_ac", "cool_with_ac"]:
             ac_entity = self.entity_manager.get_ac_entity(room_id)
             if ac_entity:
-                self.log(f"Setting AC for {room_id} to {ac_mode} mode at {ac_temp}°C", level="INFO")
+                self.log(f"Setting AC for {room_id} to {ac_mode} mode at {ac_temp}C", level="INFO")
                 self._set_ac(ac_entity, ac_mode, ac_temp)
             else:
                 self.log(f"Cannot control AC for {room_id}: no entity found", level="WARNING")

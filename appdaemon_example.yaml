@@ -14,14 +14,15 @@ smart_climate_controller:
   default_target_temp_night: 18.0  # Default night temperature in Celsius
   # Eco mode settings
   eco_mode_when_away: true  # Enable eco mode when nobody is home
-  eco_temp_heating: 16.0  # Temperature to maintain when away (heating)
-  eco_temp_cooling: 26.0  # Temperature to maintain when away (cooling)
+  eco_temp_heating: 16.0  # Minimum temperature to maintain when away (heating)
+  eco_temp_cooling: 26.0  # Maximum temperature to maintain when away (cooling)
   # Gas water heater settings
   min_heater_temp: 35.0  # Minimum water temperature for in-floor heating
   max_heater_temp: 55.0  # Maximum water temperature for in-floor heating
   default_heater_temp: 45.0  # Default water temperature when not calculated
   min_outdoor_temp: -10.0  # Coldest expected outdoor temperature
-  max_outdoor_temp: 20.0   # Warmest outdoor temperature where heating is needed
+  max_outdoor_temp: 15.0   # Warmest outdoor temperature where heating is still needed
+  cooling_threshold: 20.0  # Outdoor temperature where cooling becomes appropriate
 
   # Add rooms configuration according to your home setup
   rooms:

@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.2.2 - Weather-Based Season Detection
+
+- Enhanced eco mode to use actual outdoor temperature and weather forecast to determine heating/cooling seasons
+- Fixed issue where system would heat during summer when room temperature was below eco cooling threshold
+- Added more detailed logging of weather-based decision making
+- Added cooling_threshold configuration parameter
+
+## 1.2.1 - Eco Mode & Summer Cooling Fix
+
+- Fixed eco mode logic to prevent heating during summer when eco temp is higher than current temp
+- Improved season detection for better climate control decisions
+- Added more descriptive logging for climate decisions
+
 ## 1.2.0 - Window Detection Improvements & Solar Export Fix
 
 - Added option to disable window detection for rooms
