@@ -37,6 +37,12 @@ class PresenceManager:
         """Update the initial presence states for all rooms and global presence."""
         # Check room presence sensors
         for room_id in self.rooms:
+            room_config = self.rooms.get(room_id, {})
+            # Skip rooms where presence is not required
+            if not room_config.get("presence_required", True):
+                self.room_presence[room_id] = True
+                continue
+
             entity_id = self.controller.entity_manager.get_presence_entity(room_id)
             if entity_id:
                 state = self.controller.get_state(entity_id)
@@ -44,12 +50,13 @@ class PresenceManager:
 
         # Check global presence sensors
         global_entities = self.controller.entity_manager.get_global_presence_entities()
-        for entity_id in global_entities:
-            if entity_id:
-                state = self.controller.get_state(entity_id)
-                if state == "on":
-                    self.global_presence = True
-                    break
+        if global_entities:  # Check if the list is not None
+            for entity_id in global_entities:
+                if entity_id:
+                    state = self.controller.get_state(entity_id)
+                    if state == "on":
+                        self.global_presence = True
+                        break
 
     def update_room_presence(self, room_id: str, is_present: bool) -> None:
         """Update the presence state for a specific room.
@@ -152,8 +159,14 @@ class PresenceManager:
             room_id: Room identifier
 
         Returns:
-            True if the room is occupied, False otherwise
+            True if the room is occupied or if presence is not required for this room,
+            False otherwise
         """
+        # If presence is not required for this room, always return True
+        room_config = self.controller.rooms.get(room_id, {})
+        if not room_config.get("presence_required", True):
+            return True
+
         return self.room_presence.get(room_id, False)
 
     def is_home_occupied(self) -> bool:

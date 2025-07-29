@@ -80,7 +80,7 @@ The system continuously monitors room conditions and makes intelligent decisions
 3. Room occupancy
 4. Available renewable energy
 5. Weather conditions and forecast
-6. Window states
+6. Window states (can be disabled per room if needed)
 
 It will automatically choose between air conditioning and in-floor heating based on efficiency, available energy sources, and temperature requirements.
 
@@ -100,9 +100,9 @@ The climate decision engine considers multiple factors:
 
 - For heating: It can use floor heating, AC heating, or both depending on:
   - Available renewable energy
-  - Central heater water temperature
   - Temperature difference to target
   - Weather forecast trends
+  - The gas water heater temperature is automatically adjusted based on outdoor conditions
 
 - For cooling: It uses AC cooling, potentially more aggressively when excess solar power is available
 

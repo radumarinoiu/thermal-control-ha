@@ -42,8 +42,9 @@ class EntityManager:
         if not self.global_entities:
             self.global_entities = {
                 "central_heater_temp": "sensor.central_heater_temperature",
+                "central_heater_control": "climate.water_heater",
                 "solar_excess": "sensor.solar_power_excess",
-                "battery_capacity": "sensor.battery_capacity",
+                "battery_state_of_charge": "sensor.battery_state_of_charge",
                 "outside_temp": "sensor.outside_temperature",
                 "outside_humidity": "sensor.outside_humidity",
                 "weather_forecast": "weather.forecast",
@@ -129,6 +130,10 @@ class EntityManager:
         """Get the presence sensor entity ID for a room."""
         room_config = self.rooms.get(room_id, {})
 
+        # If presence is not required for this room, return None
+        if not room_config.get("presence_required", True):
+            return None
+
         # Check if there's a custom entity defined for this room
         if "presence_entity" in room_config:
             return room_config["presence_entity"]
@@ -162,13 +167,17 @@ class EntityManager:
         """Get the central heater temperature entity ID."""
         return self.global_entities.get("central_heater_temp")
 
+    def get_central_heater_control_entity(self) -> Optional[str]:
+        """Get the central heater control entity ID."""
+        return self.global_entities.get("central_heater_control")
+
     def get_solar_excess_entity(self) -> Optional[str]:
         """Get the solar excess power entity ID."""
         return self.global_entities.get("solar_excess")
 
-    def get_battery_entity(self) -> Optional[str]:
-        """Get the battery capacity entity ID."""
-        return self.global_entities.get("battery_capacity")
+    def get_battery_soc_entity(self) -> Optional[str]:
+        """Get the battery state of charge (percentage) entity ID."""
+        return self.global_entities.get("battery_state_of_charge")
 
     def get_outside_temp_entity(self) -> Optional[str]:
         """Get the outside temperature entity ID."""
@@ -216,7 +225,15 @@ class EntityManager:
             return None
 
     def is_window_open(self, room_id: str) -> bool:
-        """Check if the window is open for a room."""
+        """Check if the window is open for a room.
+
+        If window detection is disabled for the room, always returns False.
+        """
+        # Check if window detection is enabled for this room
+        room_config = self.rooms.get(room_id, {})
+        if not room_config.get("window_detection_enabled", True):
+            return False
+
         entity_id = self.get_window_entity(room_id)
         if not entity_id:
             return False

@@ -19,8 +19,8 @@ class PowerManager:
 
         # Initialize power-related values
         self.solar_excess = 0.0  # Watts
-        self.battery_capacity = 0.0  # kWh
-        self.battery_percentage = 0.0  # Percent
+        self.battery_state_of_charge = 0.0  # Percentage (0-100)
+        self.battery_energy_left = 0.0  # kWh - Calculated energy left in battery
         self.heater_temperature = 0.0  # Celsius
 
         # Configuration values
@@ -41,15 +41,17 @@ class PowerManager:
             except (ValueError, TypeError):
                 self.controller.log("Invalid solar excess value", level="WARNING")
 
-        # Update battery capacity
-        battery_entity = self.controller.entity_manager.get_battery_entity()
-        if battery_entity:
+        # Update battery state of charge
+        battery_soc_entity = self.controller.entity_manager.get_battery_soc_entity()
+
+        # Get battery state of charge percentage
+        if battery_soc_entity:
             try:
-                self.battery_capacity = float(self.controller.get_state(battery_entity))
-                self.battery_percentage = (self.battery_capacity / self.battery_max) * 100.0 \
-                    if self.battery_max > 0 else 0.0
+                self.battery_state_of_charge = float(self.controller.get_state(battery_soc_entity))
+                # Calculate energy left in the battery
+                self.battery_energy_left = (self.battery_state_of_charge / 100.0) * self.battery_max
             except (ValueError, TypeError):
-                self.controller.log("Invalid battery capacity value", level="WARNING")
+                self.controller.log("Invalid battery state of charge value", level="WARNING")
 
         # Update heater temperature
         heater_entity = self.controller.entity_manager.get_central_heater_entity()
@@ -67,14 +69,15 @@ class PowerManager:
         """
         self.solar_excess = value
 
-    def update_battery_capacity(self, value: float) -> None:
-        """Update the battery capacity value.
+    def update_battery_soc(self, value: float) -> None:
+        """Update the battery state of charge value.
 
         Args:
-            value: Battery capacity in kWh
+            value: Battery state of charge in percentage (0-100)
         """
-        self.battery_capacity = value
-        self.battery_percentage = (value / self.battery_max) * 100.0 if self.battery_max > 0 else 0.0
+        self.battery_state_of_charge = value
+        # Recalculate energy left based on new state of charge
+        self.battery_energy_left = (value / 100.0) * self.battery_max
 
     def update_heater_temperature(self, value: float) -> None:
         """Update the central heater temperature value.
@@ -90,15 +93,15 @@ class PowerManager:
         Returns:
             Available power in Watts that can be used for climate control
         """
-        # Check if we have direct solar excess
-        if self.solar_excess > self.min_solar_excess:
-            return self.solar_excess
+        # Check if we have direct solar excess (negative value means excess/exported power)
+        if self.solar_excess < -self.min_solar_excess:
+            return abs(self.solar_excess)
 
         # If battery is well-charged, we can also use that
-        if self.battery_percentage > self.min_battery_percent:
-            # Calculate an equivalent power based on battery percentage
+        if self.battery_state_of_charge > self.min_battery_percent:
+            # Calculate an equivalent power based on battery state of charge
             # Higher battery = more power available
-            excess_percent = self.battery_percentage - self.min_battery_percent
+            excess_percent = self.battery_state_of_charge - self.min_battery_percent
             if excess_percent > 0:
                 # Scale from 0 to 1000W based on excess battery percentage
                 battery_power = (excess_percent / (100.0 - self.min_battery_percent)) * 1000.0
@@ -108,13 +111,61 @@ class PowerManager:
         return self.solar_excess
 
     def is_heater_ready(self) -> bool:
-        """Check if the central heater is at a suitable temperature for use.
+        """Check if the gas water heater is ready for use.
+
+        For on-demand gas water heaters, we assume it's always ready
+        since it heats up the water when needed.
 
         Returns:
-            True if the heater is ready, False otherwise
+            True as the gas water heater is always available
         """
-        min_temp = float(self.config.get("min_heater_temp", 35.0))  # Celsius
-        return self.heater_temperature >= min_temp
+        return True
+
+    def calculate_optimal_heater_temp(self, outdoor_temp: Optional[float] = None) -> float:
+        """Calculate the optimal water temperature for the gas water heater based on outdoor temperature.
+
+        Args:
+            outdoor_temp: Current outdoor temperature in Celsius. If None, will be retrieved.
+
+        Returns:
+            Optimal water temperature in Celsius
+        """
+        # Get outdoor temperature if not provided
+        if outdoor_temp is None:
+            weather_manager = self.controller.weather_manager
+            if weather_manager:
+                outdoor_temp = weather_manager.get_outdoor_temperature()
+
+        # Default temperature if we can't get outdoor temperature
+        if outdoor_temp is None:
+            return float(self.config.get("default_heater_temp", 45.0))
+
+        # Calculate optimal temperature based on outdoor temperature
+        # Colder outside = hotter water needed to maintain comfort
+
+        # Get configuration values
+        min_outdoor_temp = float(self.config.get("min_outdoor_temp", -10.0))  # Celsius
+        max_outdoor_temp = float(self.config.get("max_outdoor_temp", 20.0))  # Celsius
+        min_heater_temp = float(self.config.get("min_heater_temp", 35.0))  # Celsius
+        max_heater_temp = float(self.config.get("max_heater_temp", 55.0))  # Celsius
+
+        # Ensure outdoor temperature is within expected range
+        outdoor_temp = max(min_outdoor_temp, min(max_outdoor_temp, outdoor_temp))
+
+        # Linear mapping: colder outside = hotter water
+        # When outside is at max_outdoor_temp, heater is at min_heater_temp
+        # When outside is at min_outdoor_temp, heater is at max_heater_temp
+        temp_range = max_outdoor_temp - min_outdoor_temp
+        if temp_range == 0:  # Avoid division by zero
+            return (min_heater_temp + max_heater_temp) / 2
+
+        # Calculate percentage of how cold it is (0% = warmest, 100% = coldest)
+        cold_percent = (max_outdoor_temp - outdoor_temp) / temp_range
+
+        # Calculate heater temperature based on cold percentage
+        heater_temp = min_heater_temp + cold_percent * (max_heater_temp - min_heater_temp)
+
+        return round(heater_temp, 1)
 
     def get_power_status(self) -> Dict[str, Any]:
         """Get the current power status information.
@@ -122,11 +173,17 @@ class PowerManager:
         Returns:
             Dictionary with power status information
         """
+        # Get outdoor temperature for optimal heater temp calculation
+        outdoor_temp = None
+        if hasattr(self.controller, 'weather_manager'):
+            outdoor_temp = self.controller.weather_manager.get_outdoor_temperature()
+
         return {
             "solar_excess": self.solar_excess,
-            "battery_capacity": self.battery_capacity,
-            "battery_percentage": self.battery_percentage,
+            "battery_state_of_charge": self.battery_state_of_charge,
+            "battery_energy_left": self.battery_energy_left,
             "heater_temperature": self.heater_temperature,
+            "optimal_heater_temp": self.calculate_optimal_heater_temp(outdoor_temp),
             "renewable_power_available": self.get_available_renewable_power(),
             "heater_ready": self.is_heater_ready()
         }

@@ -138,7 +138,7 @@ class ClimateDecisionEngine:
         # Get central heater temperature
         heater_temp = self._get_central_heater_temp()
 
-        # Check if we have enough renewable power
+        # Check if we have enough renewable power (renewable_power is positive when in excess)
         enough_renewable = renewable_power > self.solar_excess_threshold
 
         # Get expected outdoor temperature trend
@@ -146,8 +146,8 @@ class ClimateDecisionEngine:
 
         # Determine the best heating strategy based on conditions
 
-        # If we have floor heating and the heater is warm enough
-        if floor_heating_available and heater_temp > self.heater_min_temp:
+        # For on-demand gas water heater, we can always use floor heating when available
+        if floor_heating_available:
             # If temperature difference is small, floor heating alone might be enough
             if temp_difference < 1.5:
                 decision["action"] = "heat_with_floor"
@@ -188,16 +188,12 @@ class ClimateDecisionEngine:
                 decision["floor_heating"] = True
                 decision["reason"] = f"Using floor heating: AC heating not available"
 
-        # If we have AC heating but no floor heating (or heater isn't warm enough)
+        # If we have AC heating but no floor heating
         elif ac_heating_available:
             decision["action"] = "heat_with_ac"
             decision["ac_mode"] = "heat"
             decision["ac_temp"] = min(self.ac_max_temp, target_temp + 0.5)
-
-            if not floor_heating_available:
-                decision["reason"] = f"Using AC heating: floor heating not available"
-            else:
-                decision["reason"] = f"Using AC heating: central heater temp too low ({heater_temp:.1f}°C)"
+            decision["reason"] = f"Using AC heating: floor heating not available"
 
         # If no heating options are available
         else:

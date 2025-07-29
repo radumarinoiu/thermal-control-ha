@@ -9,6 +9,7 @@ from .utils.weather_integration import WeatherManager
 from .utils.presence_manager import PresenceManager
 from .utils.schedule_manager import ScheduleManager
 from .utils.power_manager import PowerManager
+from .utils.heater_controller import HeaterController
 
 
 class SmartClimateController(hass.Hass):
@@ -47,6 +48,7 @@ class SmartClimateController(hass.Hass):
         self.presence_manager = PresenceManager(self)
         self.schedule_manager = ScheduleManager(self)
         self.power_manager = PowerManager(self)
+        self.heater_controller = HeaterController(self)
         self.decision_engine = ClimateDecisionEngine(self)
 
         # Register callbacks for various entities
@@ -78,10 +80,11 @@ class SmartClimateController(hass.Hass):
             if window_entity:
                 self.listen_state(self._on_window_change, window_entity, room_id=room_id)
 
-            # Presence sensors (if room-specific)
-            presence_entity = self.entity_manager.get_presence_entity(room_id)
-            if presence_entity:
-                self.listen_state(self._on_presence_change, presence_entity, room_id=room_id)
+            # Presence sensors (if room-specific and required)
+            if room_config.get("presence_required", True):
+                presence_entity = self.entity_manager.get_presence_entity(room_id)
+                if presence_entity:
+                    self.listen_state(self._on_presence_change, presence_entity, room_id=room_id)
 
         # Global presence sensors
         for presence_entity in self.entity_manager.get_global_presence_entities():
@@ -92,10 +95,11 @@ class SmartClimateController(hass.Hass):
         if solar_excess_entity:
             self.listen_state(self._on_solar_excess_change, solar_excess_entity)
 
-        # Battery capacity
-        battery_entity = self.entity_manager.get_battery_entity()
-        if battery_entity:
-            self.listen_state(self._on_battery_change, battery_entity)
+
+        # Battery state of charge
+        battery_soc_entity = self.entity_manager.get_battery_soc_entity()
+        if battery_soc_entity:
+            self.listen_state(self._on_battery_soc_change, battery_soc_entity)
 
         # Central heater temperature
         heater_temp_entity = self.entity_manager.get_central_heater_entity()
@@ -119,6 +123,9 @@ class SmartClimateController(hass.Hass):
 
         # Update power status
         self.power_manager.update_power_status()
+
+        # Update gas water heater temperature based on weather
+        self.heater_controller.update_heater_based_on_weather()
 
         # Evaluate each room
         for room_id in self.rooms:
@@ -225,7 +232,10 @@ class SmartClimateController(hass.Hass):
 
     def _on_solar_excess_change(self, entity: str, attribute: str, old: str, 
                                new: str, kwargs: Dict[str, Any]) -> None:
-        """Handle changes in solar excess production."""
+        """Handle changes in solar excess production.
+
+        Note: Negative values indicate exported power (excess).
+        """
         try:
             new_value = float(new)
             self.log(f"Solar excess changed: {old} → {new} W", level="DEBUG")
@@ -240,15 +250,16 @@ class SmartClimateController(hass.Hass):
         except (ValueError, TypeError):
             self.log(f"Invalid solar excess value: {new}", level="WARNING")
 
-    def _on_battery_change(self, entity: str, attribute: str, old: str, 
-                          new: str, kwargs: Dict[str, Any]) -> None:
-        """Handle changes in battery capacity."""
+
+    def _on_battery_soc_change(self, entity: str, attribute: str, old: str,
+                     new: str, kwargs: Dict[str, Any]) -> None:
+        """Handle changes in battery state of charge."""
         try:
             new_value = float(new)
-            self.log(f"Battery capacity changed: {old} → {new} kWh", level="DEBUG")
-            self.power_manager.update_battery_capacity(new_value)
+            self.log(f"Battery state of charge changed: {old} → {new}%", level="DEBUG")
+            self.power_manager.update_battery_soc(new_value)
         except (ValueError, TypeError):
-            self.log(f"Invalid battery capacity value: {new}", level="WARNING")
+            self.log(f"Invalid battery state of charge value: {new}", level="WARNING")
 
     def _on_heater_temp_change(self, entity: str, attribute: str, old: str, 
                               new: str, kwargs: Dict[str, Any]) -> None:
